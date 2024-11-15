@@ -126,7 +126,7 @@ export const MeetingTypeList = () => {
         className="bg-yellow-1"
       />
       <HomeCard
-        img="/icons/join-meeting.svg"
+        img="/icons/emotion.svg"
         title="Emotion Detection"
         description="Check your emotion"
         handleClick={() => router.push("/emotion-detection")}
