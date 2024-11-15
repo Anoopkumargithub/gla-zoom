@@ -51,8 +51,6 @@
   "repository": {
     "type": "git"
   },
-  
-  
   "dependencies": {
     "@clerk/nextjs": "^5.6.4",
     "@radix-ui/react-dialog": "^1.1.1",
@@ -63,6 +61,7 @@
     "@stream-io/video-react-sdk": "^1.7.8",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "face-api.js": "^0.22.2",
     "lucide-react": "^0.446.0",
     "next": "14",
     "react": "^18",
@@ -76,8 +75,7 @@
     "@types/react": "^18",
     "@types/react-datepicker": "^7.0.0",
     "@types/react-dom": "^18",
-   "eslint": "^8.56.0",
-
+    "eslint": "^8.56.0",
     "eslint-config-next": "14.2.3",
     "eslint-plugin-unused-imports": "^4.1.4",
     "postcss": "^8",

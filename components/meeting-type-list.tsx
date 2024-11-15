@@ -125,6 +125,13 @@ export const MeetingTypeList = () => {
         handleClick={() => setMeetingState("isJoiningMeeting")}
         className="bg-yellow-1"
       />
+      <HomeCard
+        img="/icons/join-meeting.svg"
+        title="Emotion Detection"
+        description="Check your emotion"
+        handleClick={() => router.push("/emotion-detection")}
+        className="bg-pink-600"
+      />
 
       {!callDetails ? (
         <MeetingModal
