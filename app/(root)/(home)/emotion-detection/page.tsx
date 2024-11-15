@@ -3,25 +3,39 @@
 import { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+  interface SpeechRecognitionEvent {
+    results: SpeechRecognitionResultList;
+    resultIndex: number;
+  }
+}
 export default function EmotionDetection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [error, setError] = useState<string>("");
-
+  const [emotionsLog, setEmotionsLog] = useState<Array<{ time: string; emotion: string; speech: string }>>([]);
+  const [currentEmotion, setCurrentEmotion] = useState<string>("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  
+  // Add type declarations for Web Speech API
+  
   useEffect(() => {
     const loadModels = async () => {
       try {
         const MODEL_PATH = "/models";
-
-        // Load only the models we need
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_PATH),
           faceapi.nets.faceExpressionNet.loadFromUri(MODEL_PATH),
         ]);
-
         setModelsLoaded(true);
         startVideo();
+        initializeSpeechRecognition();
       } catch (err) {
         setError("Error loading models");
         console.error("Error loading models:", err);
@@ -29,7 +43,48 @@ export default function EmotionDetection() {
     };
 
     loadModels();
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
   }, []);
+
+  const initializeSpeechRecognition = () => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript;
+        setEmotionsLog((prevLogs) => {
+          const lastLog = prevLogs[prevLogs.length - 1];
+          if (lastLog) {
+            return prevLogs.map((log, index) => 
+              index === prevLogs.length - 1 ? { ...log, speech: transcript } : log
+            );
+          }
+          return prevLogs;
+        });
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        // Restart after 5 seconds
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+            setIsListening(true);
+          }
+        }, 5000);
+      };
+    } else {
+      setError("Speech recognition is not supported in this browser");
+    }
+  };
 
   const startVideo = async () => {
     try {
@@ -53,7 +108,12 @@ export default function EmotionDetection() {
 
     faceapi.matchDimensions(canvasRef.current, displaySize);
 
-    setInterval(async () => {
+    if (recognitionRef.current && !isListening) {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+
+    const interval = setInterval(async () => {
       if (!videoRef.current || !canvasRef.current) return;
 
       const detections = await faceapi
@@ -62,20 +122,54 @@ export default function EmotionDetection() {
 
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
 
-      // Clear previous drawings
       canvasRef.current
         .getContext("2d")
         ?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-      // Draw only face detections and expressions
       faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
       faceapi.draw.drawFaceExpressions(canvasRef.current, resizedDetections);
-    }, 100);
+
+      if (detections.length > 0) {
+        const emotions = detections[0].expressions;
+        const sortedEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
+        const strongestEmotion = sortedEmotions[0][0];
+
+        const logEntry = {
+          time: new Date().toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }).replace(/:/g, ':'),
+          emotion: strongestEmotion,
+          speech: ''
+        };
+
+        setCurrentEmotion(strongestEmotion);
+        setEmotionsLog((prevLogs) => [...prevLogs, logEntry]);
+      }
+    }, 5000); // Changed to 5000ms (5 seconds)
+
+    return () => clearInterval(interval);
+  };
+
+  const downloadLogs = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8,Time,Emotion,Speech\n" +
+      emotionsLog.map((log) => `${log.time},${log.emotion},${log.speech}`).join("\n");
+  
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "emotions_log.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center p-4">
-      <h1 className="mb-8 text-3xl font-bold">Emotion Detection</h1>
+      <h1 className="mb-8 text-3xl font-bold">Emotion Detection with Speech</h1>
 
       {error && <div className="mb-4 text-red-500">{error}</div>}
 
@@ -99,6 +193,22 @@ export default function EmotionDetection() {
 
       {!modelsLoaded && (
         <div className="mt-4 text-gray-600">Loading models... Please wait.</div>
+      )}
+
+      {modelsLoaded && currentEmotion && (
+        <div className="mt-4 text-lg font-semibold">
+          Current Emotion: <span className="text-blue-600">{currentEmotion}</span>
+          {isListening && <span className="ml-2 text-green-500">(Listening...)</span>}
+        </div>
+      )}
+
+      {emotionsLog.length > 0 && (
+        <button
+          onClick={downloadLogs}
+          className="mt-4 rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600"
+        >
+          Download Logs
+        </button>
       )}
     </div>
   );
