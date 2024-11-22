@@ -13,6 +13,7 @@ declare global {
     resultIndex: number;
   }
 }
+
 export default function EmotionDetection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -22,9 +23,8 @@ export default function EmotionDetection() {
   const [currentEmotion, setCurrentEmotion] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
-  
-  // Add type declarations for Web Speech API
-  
+  const emotionBuffer = useRef<Array<{ emotion: string; confidence: number }>>([]);
+
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -132,23 +132,29 @@ export default function EmotionDetection() {
       if (detections.length > 0) {
         const emotions = detections[0].expressions;
         const sortedEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
-        const strongestEmotion = sortedEmotions[0][0];
+        const strongestEmotion = sortedEmotions[0];
 
-        const logEntry = {
-          time: new Date().toLocaleTimeString('en-US', {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          }).replace(/:/g, ':'),
-          emotion: strongestEmotion,
-          speech: ''
-        };
+        emotionBuffer.current.push({ emotion: strongestEmotion[0], confidence: strongestEmotion[1] });
 
-        setCurrentEmotion(strongestEmotion);
-        setEmotionsLog((prevLogs) => [...prevLogs, logEntry]);
+        if (emotionBuffer.current.length >= 5) {
+          const bestEmotion = emotionBuffer.current.reduce((prev, current) => (prev.confidence > current.confidence ? prev : current));
+          const logEntry = {
+            time: new Date().toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            }).replace(/:/g, ':'),
+            emotion: bestEmotion.emotion,
+            speech: ''
+          };
+
+          setCurrentEmotion(bestEmotion.emotion);
+          setEmotionsLog((prevLogs) => [...prevLogs, logEntry]);
+          emotionBuffer.current = [];
+        }
       }
-    }, 5000); // Changed to 5000ms (5 seconds)
+    }, 1000); // Run every second
 
     return () => clearInterval(interval);
   };
