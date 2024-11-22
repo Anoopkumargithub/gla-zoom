@@ -111,14 +111,6 @@ export const MeetingTypeList = () => {
       />
 
       <HomeCard
-        img="/icons/recordings.svg"
-        title="View Recordings"
-        description="Check out your recordings"
-        handleClick={() => router.push("/recordings")}
-        className="bg-purple-1"
-      />
-
-      <HomeCard
         img="/icons/join-meeting.svg"
         title="Join Meeting"
         description="Via invitation link"
@@ -131,6 +123,14 @@ export const MeetingTypeList = () => {
         description="Check your emotion"
         handleClick={() => router.push("/emotion-detection")}
         className="bg-pink-600"
+      />
+
+<HomeCard
+        img="/icons/recordings.svg"
+        title="View Recordings"
+        description="Check out your recordings"
+        handleClick={() => router.push("/recordings")}
+        className="bg-purple-1"
       />
 
       {!callDetails ? (
